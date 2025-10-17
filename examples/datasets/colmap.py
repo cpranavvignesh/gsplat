@@ -373,12 +373,23 @@ class Dataset:
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
         index = self.indices[item]
-        image = imageio.imread(self.parser.image_paths[index])[..., :3]
+        img = imageio.imread(self.parser.image_paths[index])[..., :3]
         camera_id = self.parser.camera_ids[index]
         K = self.parser.Ks_dict[camera_id].copy()  # undistorted K
         params = self.parser.params_dict[camera_id]
         camtoworlds = self.parser.camtoworlds[index]
         mask = self.parser.mask_dict[camera_id]
+
+        # Handle both RGB and RGBA images
+        if img.shape[-1] == 4: # If image is RGBA then drop alpha channel and create a black(0) background.
+            rgb = img[..., :3].astype(np.float32)
+            alpha = img[..., 3:].astype(np.float32)
+            if alpha.max() > 1:
+                alpha /= 255.0
+            rgb = rgb * alpha #zero background
+        else: # If img is rgb just keep it as it is
+            rgb = img[..., :3].astype(np.float32)
+        image = rgb
 
         if len(params) > 0:
             # Images are distorted. Undistort them.
